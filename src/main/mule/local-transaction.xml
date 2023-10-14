@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="135e0eae-cab8-48a3-8539-9ced7fc8d14f" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="c07399b0-d080-42ad-8314-7550de1d7c30" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Surya@1998" database="Transaction"/>
+	</db:config>
+	<flow name="local-transactionFlow" doc:id="70fd106f-63cb-4f00-a5d0-1cad1b0f90c6" >
+		<http:listener doc:name="Listener" doc:id="007b53f4-5dd3-4229-bb19-e6efae17613d" config-ref="HTTP_Listener_config" path="/local-test"/>
+		<try doc:name="Try" doc:id="3380b0e6-ed8e-4684-a9e3-7d7a099138bf" transactionalAction="ALWAYS_BEGIN">
+			<logger level="INFO" doc:name="transactionStarted" doc:id="5fcca5eb-cfa5-478b-a96d-435e3989d503" message="transactionStarted"/>
+			<db:insert doc:id="4ad415f1-00ba-4890-b66f-d279bea201e2" config-ref="Database_Config" transactionalAction="ALWAYS_JOIN">
+				<db:sql ><![CDATA[INSERT INTO local_transaction1 (id, name, age)
+VALUES (2, 'Srivaani', '23')]]></db:sql>
+			</db:insert>
+			<logger level="INFO" doc:name="Logger" doc:id="2c8f728d-fe14-40f7-b9cd-ab4da8f2eb05" message="#[output json --- payload]"/>
+			<db:insert doc:name="Insert" doc:id="8697012c-1382-4d04-8953-459412a1e1be" config-ref="Database_Config" transactionalAction="ALWAYS_JOIN">
+				<db:sql ><![CDATA[INSERT INTO local_transaction2 (id, name, age)
+VALUES (1, 'surya', '26')]]></db:sql>
+			</db:insert>
+			<logger level="INFO" doc:name="Logger" doc:id="632cddaf-186d-4a64-bddc-d5b22a9d1ab7" message="#[output json --- payload]" />
+		</try>
+	</flow>
+	<flow name="local-transactionFlow1" doc:id="5e4fb1eb-851c-4e65-8be7-22390214d1cf" >
+		<http:listener doc:name="Listener" doc:id="99c9c025-4cb1-4322-87f4-43381dd6f11e" config-ref="HTTP_Listener_config" path="/fetch"/>
+		<db:select doc:name="Select" doc:id="24880a05-1af9-453a-aa92-776bba26197e" config-ref="Database_Config" target="a1" targetValue="#[output json --- payload]">
+			<db:sql ><![CDATA[SELECT * FROM local_transaction1]]></db:sql>
+		</db:select>
+		<db:select doc:name="Select" doc:id="69647460-b55e-49a7-a767-ba7ccd7b20c7" config-ref="Database_Config" target="a2" targetValue="#[output json --- payload]">
+			<db:sql ><![CDATA[SELECT * FROM local_transaction2]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3483a018-def5-4d3c-8447-a058414d9658" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"table1": vars.a1,
+	"table2": vars.a2
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
